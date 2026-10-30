@@ -1,0 +1,181 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         String   @default("ADVOGADO") // ADMIN | ADVOGADO | SECRETARIA
+  oab          String?
+  avatar       String?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  processos    ProcessoAdvogado[]
+  tarefas      Tarefa[]
+  timeEntries  TimeEntry[]
+}
+
+model Cliente {
+  id           String   @id @default(cuid())
+  tipo         String   @default("PF") // PF | PJ
+  nome         String
+  cpfCnpj      String?
+  email        String?
+  telefone     String?
+  celular      String?
+  endereco     String?
+  cidade       String?
+  estado       String?
+  cep          String?
+  observacoes  String?
+  ativo        Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  processos    Processo[]
+  documentos   Documento[]
+  financeiros  Financeiro[]
+}
+
+model Processo {
+  id             String   @id @default(cuid())
+  numero         String?
+  numeroCNJ      String?
+  titulo         String
+  descricao      String?
+  area           String   // CIVIL | TRABALHISTA | CRIMINAL | TRIBUTARIO | FAMILIA | PREVIDENCIARIO | EMPRESARIAL | OUTRO
+  fase           String   @default("INICIAL") // INICIAL | CONHECIMENTO | RECURSAL | EXECUCAO | ARQUIVADO
+  status         String   @default("ATIVO") // ATIVO | SUSPENSO | ENCERRADO | ARQUIVADO
+  vara           String?
+  comarca        String?
+  tribunal       String?
+  uf             String?
+  valorCausa     Float?
+  dataDistribuicao DateTime?
+  dataEncerramento DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  clienteId      String
+  cliente        Cliente  @relation(fields: [clienteId], references: [id])
+
+  advogados      ProcessoAdvogado[]
+  tarefas        Tarefa[]
+  documentos     Documento[]
+  financeiros    Financeiro[]
+  andamentos     Andamento[]
+  audiencias     Audiencia[]
+}
+
+model ProcessoAdvogado {
+  processoId String
+  userId     String
+  papel      String @default("TITULAR") // TITULAR | ASSISTENTE
+
+  processo Processo @relation(fields: [processoId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id])
+
+  @@id([processoId, userId])
+}
+
+model Andamento {
+  id         String   @id @default(cuid())
+  data       DateTime @default(now())
+  descricao  String
+  tipo       String   @default("GERAL") // GERAL | AUDIENCIA | DESPACHO | SENTENCA | RECURSO | INTIMACAO | PETICAO
+  fonte      String   @default("MANUAL") // MANUAL | TRIBUNAL
+
+  processoId String
+  processo   Processo @relation(fields: [processoId], references: [id], onDelete: Cascade)
+}
+
+model Audiencia {
+  id          String   @id @default(cuid())
+  titulo      String
+  data        DateTime
+  local       String?
+  tipo        String   @default("COMUM") // COMUM | CONCILIACAO | INSTRUCAO | JULGAMENTO | VIRTUAL
+  status      String   @default("AGENDADA") // AGENDADA | REALIZADA | CANCELADA | ADIADA
+  observacoes String?
+  createdAt   DateTime @default(now())
+
+  processoId  String
+  processo    Processo @relation(fields: [processoId], references: [id], onDelete: Cascade)
+}
+
+model Tarefa {
+  id          String   @id @default(cuid())
+  titulo      String
+  descricao   String?
+  prazo       DateTime?
+  prioridade  String   @default("NORMAL") // BAIXA | NORMAL | ALTA | URGENTE
+  status      String   @default("PENDENTE") // PENDENTE | EM_ANDAMENTO | CONCLUIDA | CANCELADA
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  processoId  String?
+  processo    Processo? @relation(fields: [processoId], references: [id], onDelete: SetNull)
+
+  responsavelId String?
+  responsavel   User?    @relation(fields: [responsavelId], references: [id])
+}
+
+model Documento {
+  id          String   @id @default(cuid())
+  nome        String
+  tipo        String   @default("OUTRO") // PETICAO | CONTRATO | PROCURACAO | SENTENCA | RECURSO | OUTRO
+  url         String?
+  tamanho     Int?
+  mimetype    String?
+  descricao   String?
+  createdAt   DateTime @default(now())
+
+  processoId  String?
+  processo    Processo? @relation(fields: [processoId], references: [id], onDelete: SetNull)
+
+  clienteId   String?
+  cliente     Cliente?  @relation(fields: [clienteId], references: [id], onDelete: SetNull)
+}
+
+model Financeiro {
+  id          String   @id @default(cuid())
+  tipo        String   // HONORARIO | DESPESA | REEMBOLSO | CUSTAS
+  descricao   String
+  valor       Float
+  status      String   @default("PENDENTE") // PENDENTE | PAGO | CANCELADO | VENCIDO
+  dataVencimento DateTime?
+  dataPagamento  DateTime?
+  formaPagamento String?
+  observacoes    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  clienteId   String?
+  cliente     Cliente? @relation(fields: [clienteId], references: [id])
+
+  processoId  String?
+  processo    Processo? @relation(fields: [processoId], references: [id])
+}
+
+model TimeEntry {
+  id          String   @id @default(cuid())
+  descricao   String
+  minutos     Int
+  data        DateTime @default(now())
+  faturavel   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+
+  processoId  String?
+}
